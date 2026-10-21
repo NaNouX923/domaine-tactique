@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Domaine Tactique</title>
+<meta name="theme-color" content="#101513">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Saira+Condensed:wght@600;800&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="intro" aria-hidden="true">
+  <svg class="reticle" viewBox="0 0 120 120">
+    <circle class="ring" cx="60" cy="60" r="44"/>
+    <path class="ticks" d="M60 4v24M60 92v24M4 60h24M92 60h24"/>
+    <circle class="core" cx="60" cy="60" r="3"/>
+  </svg>
+  <h1>DOMAINE</h1>
+  <p class="sub">Bois-Boudran · Fontenailles</p>
+  <p class="coords">48.5625 N · 2.9494 E</p>
+</div>
+
+<div id="map" aria-label="Carte du terrain"></div>
+
+<header id="top" class="bar">
+  <span id="conn" class="conn" title="Connexion"></span>
+  <button id="btnTeam" class="team-code" type="button" aria-label="Réglages de l'équipe"><span id="roomName">domaine</span></button>
+  <span id="gps" class="gps">GPS …</span>
+  <span class="grow"></span>
+  <label class="sr" for="filter">Filtrer par étage</label>
+  <select id="filter" class="chip">
+    <option value="all">Tous niveaux</option>
+    <option value="out">Dehors</option>
+    <option value="-1">-1</option>
+    <option value="0">RDC</option>
+    <option value="1">1er</option>
+    <option value="2">2e</option>
+    <option value="3">3e</option>
+  </select>
+  <button id="btnLayer" class="chip" type="button">Satellite IGN</button>
+</header>
+
+<div id="fab">
+  <button id="btnCenter" class="fab bar" type="button" aria-label="Me centrer">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+    <span>Moi</span>
+  </button>
+  <button id="btnPing" class="fab bar" type="button" aria-label="Signaler">
+    <svg viewBox="0 0 24 24"><path d="M12 3 2 21h20L12 3z"/><path d="M12 10v5M12 18v.01"/></svg>
+    <span>Signal</span>
+  </button>
+  <button id="btnPlace" class="fab bar" type="button" aria-label="Me placer à la main">
+    <svg viewBox="0 0 24 24"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/></svg>
+    <span id="placeLbl">Placer</span>
+  </button>
+  <button id="btnEdit" class="fab bar" type="button" aria-label="Tracer les zones">
+    <svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>
+    <span>Zones</span>
+  </button>
+</div>
+
+<div id="hint" class="bar" hidden></div>
+
+<section id="bottom">
+  <div id="floorsWrap" class="bar">
+    <div id="whereAmI">Position en attente…</div>
+    <div id="floors" role="group" aria-label="Mon étage"></div>
+  </div>
+  <div id="sheet" class="bar">
+    <button id="sheetHead" type="button" aria-expanded="true">
+      <span>Escouade <b id="count">1</b></span>
+      <span class="caret" aria-hidden="true"></span>
+    </button>
+    <ul id="list"></ul>
+  </div>
+</section>
+
+<!-- Éditeur de zones -->
+<div id="editPanel" class="panel bar" hidden>
+  <div class="panel-head">
+    <b>Tracer une zone</b>
+    <button id="editClose" type="button" class="link">Fermer</button>
+  </div>
+  <p id="editInfo" class="muted">Touche la carte pour poser les coins du bâtiment ou de la zone.</p>
+  <div class="row-btns">
+    <button id="editUndo" type="button" class="btn">Annuler le point</button>
+    <button id="editDone" type="button" class="btn primary">Terminer</button>
+  </div>
+  <details>
+    <summary>Zones enregistrées (<span id="zoneCount">0</span>)</summary>
+    <ul id="zoneList"></ul>
+    <div class="row-btns">
+      <button id="zExport" type="button" class="btn">Exporter</button>
+      <label class="btn" for="zImport">Importer</label>
+      <input id="zImport" type="file" accept="application/json,.json" hidden>
+    </div>
+  </details>
+</div>
+
+<!-- Formulaire zone -->
+<div id="zoneModal" class="modal" hidden>
+  <form id="zoneForm" class="card">
+    <h2>Nouvelle zone</h2>
+    <label for="zName">Nom</label>
+    <input id="zName" maxlength="40" required placeholder="ex. Écuries, Chapelle, Bois nord">
+    <label for="zType">Type</label>
+    <select id="zType"></select>
+    <fieldset id="zFloorsSet">
+      <legend>Niveaux du bâtiment</legend>
+      <div id="zFloors" class="checks"></div>
+    </fieldset>
+    <div class="row-btns">
+      <button type="button" id="zCancel" class="btn">Annuler</button>
+      <button type="submit" class="btn primary">Enregistrer</button>
+    </div>
+  </form>
+</div>
+
+<!-- Choix du signal -->
+<div id="pingModal" class="modal" hidden>
+  <div class="card">
+    <h2>Signaler</h2>
+    <div id="pingKinds" class="ping-grid"></div>
+    <button type="button" id="pingCancel" class="btn wide">Annuler</button>
+  </div>
+</div>
+
+<!-- Réglages -->
+<div id="setupModal" class="modal" hidden>
+  <form id="setupForm" class="card">
+    <h2>Rejoindre l'escouade</h2>
+    <label for="sName">Pseudo</label>
+    <input id="sName" maxlength="20" required autocomplete="nickname" placeholder="ex. Nanoux">
+    <label for="sRoom">Code d'équipe</label>
+    <input id="sRoom" maxlength="24" required pattern="[A-Za-z0-9_\-]+" placeholder="ex. alpha77">
+    <p class="muted small">Même code = même escouade. Lettres, chiffres, - et _ uniquement.</p>
+    <span class="lbl">Couleur</span>
+    <div id="sColors" class="swatches" role="radiogroup" aria-label="Couleur"></div>
+    <div id="offlineBox">
+      <span class="lbl">Carte hors-ligne</span>
+      <p class="muted small">Le réseau est faible en forêt : télécharge le fond de carte du domaine en wifi avant la partie.</p>
+      <button type="button" id="btnOffline" class="btn wide">Télécharger le terrain</button>
+    </div>
+    <button type="submit" class="btn primary wide">C'est parti</button>
+  </form>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
